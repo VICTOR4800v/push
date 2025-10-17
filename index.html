@@ -97,4 +97,259 @@
   <div class="login-container" id="loginContainer">
     <h1>🔒 Accedi</h1>
     <p>Inserisci la password per continuare</p>
-    <div class="error-message" id="errorMess
+    <div class="error-message" id="errorMessage">Password non corretta!</div>
+    <input type="password" id="passwordInput" placeholder="Password" autocomplete="off">
+    <button onclick="handleLogin()"><span id="loginButtonText">Accedi</span></button>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="main-container" id="mainContainer">
+    <div class="max-w-7xl">
+      <div class="header">
+        <div class="header-top">
+          <div class="header-title"><h1>📊 Tracker Attività</h1></div>
+          <div style="display:flex;align-items:center;gap:20px;">
+            <div class="sync-status synced" id="syncStatus">
+              <div class="dot"></div><span id="syncText">Sincronizzato</span>
+            </div>
+            <button class="logout-btn" onclick="handleLogout()">Esci</button>
+          </div>
+        </div>
+        <div class="month-selector" id="monthSelector"></div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="table-container">
+        <div class="table-header" id="tableHeader">Ottobre 2025</div>
+        <div class="table-wrapper">
+          <table id="daysTable">
+            <thead>
+              <tr>
+                <th>Giorno</th><th>Target Progressivo</th><th>Completati</th><th>Mancanti</th><th>Azione</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="summaries">
+        <h2>📈 Riepiloghi</h2>
+        <div class="summary-grid" id="summaryGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS MODULARE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+    import CryptoJS from "https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/+esm";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfFmbNASeRU5T12O9WTUCtzvsfMlFFQ18",
+      authDomain: "tracker-attivita.firebaseapp.com",
+      databaseURL: "https://tracker-attivita-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "tracker-attivita",
+      storageBucket: "tracker-attivita.firebasestorage.app",
+      messagingSenderId: "857694304901",
+      appId: "1:857694304901:web:c4ff52a70b6fec3e1907ec"
+    };
+
+    const PASSWORD_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; // "admin"
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let currentMonth = 9, currentYear = 2025;
+    let completamenti = {}, isSyncing = false, userAuth = null;
+    const mesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+    function handleLogin() {
+      const password = document.getElementById('passwordInput').value;
+      const hash = CryptoJS.SHA256(password).toString();
+      if (hash === PASSWORD_HASH) {
+        userAuth = hash.substring(0,16);
+        document.getElementById('loginContainer').style.display='none';
+        document.getElementById('mainContainer').classList.add('show');
+        loadDataFromFirebase();
+        initApp();
+      } else {
+        document.getElementById('errorMessage').style.display='block';
+        document.getElementById('passwordInput').value='';
+      }
+    }
+
+    function handleLogout() {
+      document.getElementById('loginContainer').style.display='flex';
+      document.getElementById('mainContainer').classList.remove('show');
+      document.getElementById('passwordInput').value='';
+      document.getElementById('errorMessage').style.display='none';
+      completamenti={}; userAuth=null;
+    }
+
+    function updateSyncStatus(syncing){
+      const status=document.getElementById('syncStatus'), text=document.getElementById('syncText');
+      if(syncing){status.className='sync-status syncing';text.textContent='Sincronizzazione...';}
+      else {status.className='sync-status synced';text.textContent='Sincronizzato';}
+    }
+
+    function loadDataFromFirebase(){
+      updateSyncStatus(true);
+      const userRef = ref(db, 'utenti/' + userAuth);
+      onValue(userRef,(snapshot)=>{
+        if(snapshot.exists()){
+          const data=snapshot.val();
+          completamenti=data.completamenti||{};
+        }
+        updateSyncStatus(false);
+        render();
+      });
+    }
+
+    function saveDataToFirebase(){
+      if(isSyncing) return;
+      isSyncing=true; updateSyncStatus(true);
+      const userRef = ref(db,'utenti/'+userAuth);
+      set(userRef,{completamenti,ultimoAggiornamento:new Date().toISOString()})
+      .then(()=>{isSyncing=false;updateSyncStatus(false);})
+      .catch((err)=>{console.error(err);isSyncing=false;updateSyncStatus(false);});
+    }
+
+    function giorniDelMese(m,a){return new Date(a,m+1,0).getDate();}
+    function calcolaTargetGiorno(m,g){let tot=0;for(let i=0;i<m;i++)tot+=giorniDelMese(i,currentYear);tot+=g;return tot*3;}
+
+    function getDatiMese(){
+      const giorni=giorniDelMese(currentMonth,currentYear);
+      const dati=[];
+      for(let g=1;g<=giorni;g++){
+        const chiave=`${currentYear}-${currentMonth}-${g}`;
+        const target=calcolaTargetGiorno(currentMonth,g);
+        const completato=completamenti[chiave]||0;
+        dati.push({giorno:g,chiave,target,completato,mancante:target-completato});
+      }
+      return dati;
+    }
+
+    function renderMonthSelector(){
+      const sel=document.getElementById('monthSelector'); sel.innerHTML='';
+      mesi.forEach((m,idx)=>{
+        const btn=document.createElement('button');
+        btn.className=`month-btn ${idx===currentMonth?'active':''}`;
+        btn.textContent=m;
+        btn.onclick=()=>{currentMonth=idx;render();};
+        sel.appendChild(btn);
+      });
+    }
+
+    function renderTable(){
+      const dati=getDatiMese();
+      const tbody=document.getElementById('tableBody');
+      document.getElementById('tableHeader').textContent=`${mesi[currentMonth]} ${currentYear}`;
+      tbody.innerHTML='';
+      dati.forEach(d=>{
+        const row=document.createElement('tr');
+        const isDone=completamenti[d.chiave]===d.target;
+        row.innerHTML=`
+          <td>Giorno ${d.giorno}</td>
+          <td><strong>${d.target}</strong></td>
+          <td><input type="number" value="${completamenti[d.chiave]||''}" min="0"
+              onchange="updateCompletamento('${d.chiave}', this.value)"></td>
+          <td><span class="missing ${d.mancante===0?'zero':d.mancante>0?'positive':'negative'}">
+              ${d.mancante>0?'+':''}${d.mancante}</span></td>
+          <td><button class="complete-btn ${isDone?'done':'pending'}"
+              onclick="toggleComplete('${d.chiave}',${d.target})">${isDone?'✓ Fatto':'Completa'}</button></td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderStats(){
+      const dati=getDatiMese();
+      const target=dati[dati.length-1].target;
+      const completato=dati.reduce((s,d)=>s+d.completato,0);
+      const manc=target-completato;
+      document.getElementById('statsGrid').innerHTML=`
+        <div class="stat-card"><div class="stat-label">📅 Target Mensile</div><div class="stat-value blue">${target}</div></div>
+        <div class="stat-card"><div class="stat-label">✅ Completati</div><div class="stat-value green">${completato}</div></div>
+        <div class="stat-card"><div class="stat-label">⏳ Mancanti</div><div class="stat-value orange">${manc}</div></div>`;
+    }
+
+    function renderSummaries(){
+      const dati=getDatiMese();
+      const grid=document.getElementById('summaryGrid'); grid.innerHTML='';
+      const chunks=[];
+      for(let i=10;i<=dati.length;i+=10){
+        const dec=dati.slice(0,i);
+        const t=dec[dec.length-1].target;
+        const c=dec.reduce((s,d)=>s+d.completato,0);
+        chunks.push({giorni:`${i-9}-${i}`,target:t,completato:c,mancante:t-c});
+      }
+            const tTot = dati[dati.length - 1].target;
+      const cTot = dati.reduce((s, d) => s + d.completato, 0);
+      chunks.push({ giorni: 'Totale', target: tTot, completato: cTot, mancante: tTot - cTot, finale: true });
+
+      chunks.forEach(riepilogo => {
+        const card = document.createElement('div');
+        card.className = `summary-card ${riepilogo.finale ? 'final' : ''}`;
+        const percentuale = riepilogo.target > 0 ? ((riepilogo.completato / riepilogo.target) * 100).toFixed(1) : 0;
+        card.innerHTML = `
+          <h3>${riepilogo.finale ? '🏁 ' : '📊 '}Giorni ${riepilogo.giorni}</h3>
+          <div class="summary-item"><span class="summary-label">Target:</span><span class="summary-value blue">${riepilogo.target}</span></div>
+          <div class="summary-item"><span class="summary-label">Completati:</span><span class="summary-value green">${riepilogo.completato}</span></div>
+          <div class="summary-item"><span class="summary-label">Mancanti:</span><span class="summary-value ${riepilogo.mancante === 0 ? 'green' : 'orange'}">${riepilogo.mancante}</span></div>
+          ${riepilogo.completato > 0 ? `
+          <div class="summary-item" style="border-top:1px solid #ddd; margin-top:10px; padding-top:10px;">
+            <span class="summary-label">Percentuale:</span>
+            <span class="summary-value blue">${percentuale}%</span>
+          </div>` : ''}
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function updateCompletamento(chiave, valore) {
+      if (valore === '') {
+        delete completamenti[chiave];
+      } else {
+        completamenti[chiave] = Number(valore);
+      }
+      saveDataToFirebase();
+      render();
+    }
+
+    function toggleComplete(chiave, target) {
+      if (completamenti[chiave] === target) {
+        delete completamenti[chiave];
+      } else {
+        completamenti[chiave] = target;
+      }
+      saveDataToFirebase();
+      render();
+    }
+
+    function render() {
+      renderTable();
+      renderStats();
+      renderSummaries();
+    }
+
+    function initApp() {
+      renderMonthSelector();
+      render();
+    }
+
+    // Permette di premere "Enter" per fare login
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+    });
+
+    // Esponiamo le funzioni globalmente per usare gli onclick inline nel HTML
+    window.updateCompletamento = updateCompletamento;
+    window.toggleComplete = toggleComplete;
+    window.handleLogin = handleLogin;
+    window.handleLogout = handleLogout;
+
+  </script>
+</body>
+</html>
+
