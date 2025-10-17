@@ -4,324 +4,847 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tracker Attività Progressiva</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-container h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .login-container p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .login-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .login-container input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-container button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .login-container button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .main-container {
+            display: none;
+            width: 100%;
+            background: linear-gradient(to bottom right, #0f3460, #16213e);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container.show {
+            display: block;
+        }
+
+        .max-w-7xl {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-title h1 {
+            font-size: 32px;
+            color: #333;
+            margin: 0;
+        }
+
+        .sync-status {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sync-status.synced .dot {
+            background: #27ae60;
+        }
+
+        .sync-status.syncing .dot {
+            background: #f39c12;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .month-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .month-btn {
+            padding: 10px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .month-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .month-btn:hover {
+            border-color: #667eea;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .complete-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .complete-btn.done {
+            background: #27ae60;
+            color: white;
+        }
+
+        .complete-btn.pending {
+            background: #ecf0f1;
+            color: #333;
+        }
+
+        .complete-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .missing {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .missing.positive {
+            color: #e74c3c;
+        }
+
+        .missing.zero {
+            color: #27ae60;
+        }
+
+        .missing.negative {
+            color: #3498db;
+        }
+
+        .summaries {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 25px;
+        }
+
+        .summaries h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-card {
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+
+        .summary-card.final {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border: 2px solid #667eea;
+        }
+
+        .summary-card h3 {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .summary-label {
+            color: #666;
+        }
+
+        .summary-value {
+            font-weight: bold;
+        }
+
+        .blue { color: #3498db; }
+        .green { color: #27ae60; }
+        .orange { color: #e67e22; }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+            }
+
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .month-selector {
+                margin-top: 15px;
+            }
+
+            .month-btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 10px;
+                font-size: 12px;
+            }
+
+            input[type="number"] {
+                width: 70px;
+                font-size: 12px;
+            }
+
+            .complete-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
+    <!-- LOGIN -->
+    <div class="login-container" id="loginContainer">
+        <h1>🔒 Accedi</h1>
+        <p>Inserisci la password per continuare</p>
+        <div class="error-message" id="errorMessage">Password non corretta!</div>
+        <input type="password" id="passwordInput" placeholder="Password" autocomplete="off">
+        <button onclick="handleLogin()"><span id="loginButtonText">Accedi</span></button>
+    </div>
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        const ProgressiveTracker = () => {
-            const [dailyIncrement, setDailyIncrement] = useState(3);
-            const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-            const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-            const [data, setData] = useState({});
-
-            const monthNames = [
-                'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
-            ];
-
-            const getDaysInMonth = (month, year) => {
-                return new Date(year, month + 1, 0).getDate();
-            };
-
-            const getTotalDaysUntilMonth = (month, year) => {
-                let total = 0;
-                for (let y = 2025; y < year; y++) {
-                    total += (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
-                }
-                for (let m = 0; m < month; m++) {
-                    total += getDaysInMonth(m, year);
-                }
-                return total;
-            };
-
-            const getTargetForDay = (day, month, year) => {
-                const totalDaysSinceStart = getTotalDaysUntilMonth(month, year) + day;
-                return totalDaysSinceStart * dailyIncrement;
-            };
-
-            const handleCheckToggle = (day) => {
-                const key = `${currentYear}-${currentMonth}-${day}`;
-                const target = getTargetForDay(day, currentMonth, currentYear);
-                setData(prev => ({
-                    ...prev,
-                    [key]: prev[key]?.checked ? { ...prev[key], checked: false, completed: 0 } : { checked: true, completed: target }
-                }));
-            };
-
-            const handleCompletedChange = (day, value) => {
-                const key = `${currentYear}-${currentMonth}-${day}`;
-                const numValue = parseInt(value) || 0;
-                setData(prev => ({
-                    ...prev,
-                    [key]: { ...prev[key], completed: numValue, checked: false }
-                }));
-            };
-
-            const getMonthData = () => {
-                const daysInMonth = getDaysInMonth(currentMonth, currentYear);
-                const monthData = [];
-                
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const key = `${currentYear}-${currentMonth}-${day}`;
-                    const target = getTargetForDay(day, currentMonth, currentYear);
-                    const completed = data[key]?.completed || 0;
-                    const checked = data[key]?.checked || false;
-                    
-                    monthData.push({
-                        day,
-                        target,
-                        completed,
-                        checked,
-                        missing: target - completed
-                    });
-                }
-                
-                return monthData;
-            };
-
-            const getSummaries = () => {
-                const monthData = getMonthData();
-                const summaries = [];
-                
-                for (let i = 10; i <= monthData.length; i += 10) {
-                    const slice = monthData.slice(0, i);
-                    summaries.push({
-                        label: `Giorni 1-${i}`,
-                        targetTotal: slice.reduce((sum, d) => sum + d.target, 0),
-                        completedTotal: slice.reduce((sum, d) => sum + d.completed, 0),
-                        missingTotal: slice.reduce((sum, d) => sum + d.missing, 0)
-                    });
-                }
-                
-                summaries.push({
-                    label: `Totale ${monthNames[currentMonth]}`,
-                    targetTotal: monthData.reduce((sum, d) => sum + d.target, 0),
-                    completedTotal: monthData.reduce((sum, d) => sum + d.completed, 0),
-                    missingTotal: monthData.reduce((sum, d) => sum + d.missing, 0),
-                    isFinal: true
-                });
-                
-                return summaries;
-            };
-
-            const changeMonth = (direction) => {
-                if (direction === 'next') {
-                    if (currentMonth === 11) {
-                        setCurrentMonth(0);
-                        setCurrentYear(currentYear + 1);
-                    } else {
-                        setCurrentMonth(currentMonth + 1);
-                    }
-                } else {
-                    if (currentMonth === 0) {
-                        setCurrentMonth(11);
-                        setCurrentYear(currentYear - 1);
-                    } else {
-                        setCurrentMonth(currentMonth - 1);
-                    }
-                }
-            };
-
-            const monthData = getMonthData();
-            const summaries = getSummaries();
-            const completionRate = ((summaries[summaries.length - 1].completedTotal / summaries[summaries.length - 1].targetTotal) * 100).toFixed(1);
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <i data-lucide="trending-up" className="w-8 h-8 text-indigo-600"></i>
-                                    <h1 className="text-3xl font-bold text-gray-800">Tracker Progressivo</h1>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <label className="text-sm font-medium text-gray-700">Incremento giornaliero:</label>
-                                    <input
-                                        type="number"
-                                        value={dailyIncrement}
-                                        onChange={(e) => setDailyIncrement(parseInt(e.target.value) || 1)}
-                                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-4 text-white">
-                                <button
-                                    onClick={() => changeMonth('prev')}
-                                    className="p-2 hover:bg-white/20 rounded-lg transition"
-                                >
-                                    <i data-lucide="chevron-left" className="w-6 h-6"></i>
-                                </button>
-                                <div className="flex items-center gap-2">
-                                    <i data-lucide="calendar" className="w-5 h-5"></i>
-                                    <span className="text-xl font-semibold">
-                                        {monthNames[currentMonth]} {currentYear}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={() => changeMonth('next')}
-                                    className="p-2 hover:bg-white/20 rounded-lg transition"
-                                >
-                                    <i data-lucide="chevron-right" className="w-6 h-6"></i>
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                                <div className="bg-blue-50 rounded-lg p-4">
-                                    <div className="text-sm text-blue-600 font-medium mb-1">Target Totale</div>
-                                    <div className="text-2xl font-bold text-blue-700">
-                                        {summaries[summaries.length - 1].targetTotal.toLocaleString()}
-                                    </div>
-                                </div>
-                                <div className="bg-green-50 rounded-lg p-4">
-                                    <div className="text-sm text-green-600 font-medium mb-1">Completati</div>
-                                    <div className="text-2xl font-bold text-green-700">
-                                        {summaries[summaries.length - 1].completedTotal.toLocaleString()}
-                                    </div>
-                                </div>
-                                <div className="bg-purple-50 rounded-lg p-4">
-                                    <div className="text-sm text-purple-600 font-medium mb-1">Tasso Completamento</div>
-                                    <div className="text-2xl font-bold text-purple-700">
-                                        {completionRate}%
-                                    </div>
-                                </div>
-                            </div>
+    <!-- MAIN APP -->
+    <div class="main-container" id="mainContainer">
+        <div class="max-w-7xl">
+            <!-- HEADER -->
+            <div class="header">
+                <div class="header-top">
+                    <div class="header-title">
+                        <h1>📊 Tracker Attività</h1>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div class="sync-status synced" id="syncStatus">
+                            <div class="dot"></div>
+                            <span id="syncText">Sincronizzato</span>
                         </div>
-
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left text-sm font-semibold">Giorno</th>
-                                            <th className="px-6 py-4 text-right text-sm font-semibold">Target Previsto</th>
-                                            <th className="px-6 py-4 text-center text-sm font-semibold">Completati</th>
-                                            <th className="px-6 py-4 text-right text-sm font-semibold">Mancanti</th>
-                                            <th className="px-6 py-4 text-center text-sm font-semibold">Completo ✓</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {monthData.map((row) => (
-                                            <tr
-                                                key={row.day}
-                                                className={`${
-                                                    row.checked ? 'bg-green-50' : row.completed > 0 ? 'bg-blue-50' : 'hover:bg-gray-50'
-                                                } transition`}
-                                            >
-                                                <td className="px-6 py-4 font-medium text-gray-900">
-                                                    {row.day}
-                                                </td>
-                                                <td className="px-6 py-4 text-right font-semibold text-indigo-600">
-                                                    {row.target.toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <input
-                                                        type="number"
-                                                        value={row.completed || ''}
-                                                        onChange={(e) => handleCompletedChange(row.day, e.target.value)}
-                                                        placeholder="0"
-                                                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                    />
-                                                </td>
-                                                <td className={`px-6 py-4 text-right font-semibold ${
-                                                    row.missing > 0 ? 'text-red-600' : 'text-green-600'
-                                                }`}>
-                                                    {row.missing.toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <button
-                                                        onClick={() => handleCheckToggle(row.day)}
-                                                        className={`p-2 rounded-lg transition ${
-                                                            row.checked
-                                                                ? 'bg-green-500 text-white'
-                                                                : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
-                                                        }`}
-                                                    >
-                                                        <i data-lucide="check-circle" className="w-5 h-5"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl shadow-xl p-6">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <i data-lucide="trending-up" className="w-6 h-6 text-indigo-600"></i>
-                                Riepiloghi
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {summaries.map((summary, idx) => (
-                                    <div
-                                        key={idx}
-                                        className={`rounded-xl p-5 ${
-                                            summary.isFinal
-                                                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white col-span-full'
-                                                : 'bg-gradient-to-br from-blue-50 to-indigo-50 border border-indigo-200'
-                                        }`}
-                                    >
-                                        <div className={`text-sm font-semibold mb-3 ${summary.isFinal ? 'text-white' : 'text-indigo-600'}`}>
-                                            {summary.label}
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div>
-                                                <div className={`text-xs mb-1 ${summary.isFinal ? 'text-indigo-100' : 'text-gray-600'}`}>
-                                                    Previsto
-                                                </div>
-                                                <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-gray-900'}`}>
-                                                    {summary.targetTotal.toLocaleString()}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className={`text-xs mb-1 ${summary.isFinal ? 'text-green-100' : 'text-gray-600'}`}>
-                                                    Completati
-                                                </div>
-                                                <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-green-600'}`}>
-                                                    {summary.completedTotal.toLocaleString()}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className={`text-xs mb-1 ${summary.isFinal ? 'text-red-100' : 'text-gray-600'}`}>
-                                                    Mancanti
-                                                </div>
-                                                <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-red-600'}`}>
-                                                    {summary.missingTotal.toLocaleString()}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <button class="logout-btn" onclick="handleLogout()">Esci</button>
                     </div>
                 </div>
-            );
-        };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ProgressiveTracker />);
+                <div class="month-selector" id="monthSelector"></div>
+            </div>
 
-        // Initialize Lucide icons
-        lucide.createIcons();
-        
-        // Re-initialize icons when component updates
-        const observer = new MutationObserver(() => {
-            lucide.createIcons();
-        });
-        observer.observe(document.getElementById('root'), { 
-            childList: true, 
-            subtree: true 
+            <!-- STATS -->
+            <div class="stats-grid" id="statsGrid"></div>
+
+            <!-- TABLE -->
+            <div class="table-container">
+                <div class="table-header" id="tableHeader">Ottobre 2025</div>
+                <div class="table-wrapper">
+                    <table id="daysTable">
+                        <thead>
+                            <tr>
+                                <th>Giorno</th>
+                                <th>Target Progressivo</th>
+                                <th>Completati</th>
+                                <th>Mancanti</th>
+                                <th>Azione</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SUMMARIES -->
+            <div class="summaries">
+                <h2>📈 Riepiloghi</h2>
+                <div class="summary-grid" id="summaryGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURAZIONE FIREBASE =====
+        // SOSTITUISCI CON I TUOI DATI DA FIREBASE CONSOLE
+         const firebaseConfig = {
+    apiKey: "AIzaSyBfFmbNASeRU5T12O9WTUCtzvsfMlFFQ18",
+    authDomain: "tracker-attivita.firebaseapp.com",
+    databaseURL: "https://tracker-attivita-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "tracker-attivita",
+    storageBucket: "tracker-attivita.firebasestorage.app",
+    messagingSenderId: "857694304901",
+    appId: "1:857694304901:web:c4ff52a70b6fec3e1907ec"
+  };
+
+        // ===== PASSWORD HASH =====
+        const PASSWORD_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; // "admin"
+
+        let db;
+        let currentMonth = 9; // Ottobre
+        let currentYear = 2025;
+        let completamenti = {};
+        let isSyncing = false;
+        let userAuth = null;
+
+        const mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                      'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+        // ===== FIREBASE INIT =====
+        function initFirebase() {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                console.log('Firebase inizializzato');
+            } catch (error) {
+                console.error('Errore Firebase:', error);
+                alert('Errore di configurazione Firebase. Controlla la console.');
+            }
+        }
+
+        // ===== PASSWORD CHECK =====
+        function handleLogin() {
+            const password = document.getElementById('passwordInput').value;
+            const hash = CryptoJS.SHA256(password).toString();
+            
+            if (hash === PASSWORD_HASH) {
+                userAuth = CryptoJS.SHA256(password).toString().substring(0, 16);
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('mainContainer').classList.add('show');
+                loadDataFromFirebase();
+                initApp();
+            } else {
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('passwordInput').value = '';
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('mainContainer').classList.remove('show');
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('errorMessage').style.display = 'none';
+            completamenti = {};
+            userAuth = null;
+        }
+
+        // ===== FIREBASE SYNC =====
+        function updateSyncStatus(syncing) {
+            const status = document.getElementById('syncStatus');
+            const text = document.getElementById('syncText');
+            
+            if (syncing) {
+                status.className = 'sync-status syncing';
+                text.textContent = 'Sincronizzazione...';
+            } else {
+                status.className = 'sync-status synced';
+                text.textContent = 'Sincronizzato';
+            }
+        }
+
+        function loadDataFromFirebase() {
+            updateSyncStatus(true);
+            
+            const userRef = db.ref('utenti/' + userAuth);
+            userRef.on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    completamenti = data.completamenti || {};
+                    console.log('Dati caricati da Firebase');
+                }
+                updateSyncStatus(false);
+                render();
+            }, (error) => {
+                console.error('Errore caricamento:', error);
+                updateSyncStatus(false);
+            });
+        }
+
+        function saveDataToFirebase() {
+            if (isSyncing) return;
+            
+            isSyncing = true;
+            updateSyncStatus(true);
+            
+            const userRef = db.ref('utenti/' + userAuth);
+            userRef.set({
+                completamenti: completamenti,
+                ultimoAggiornamento: new Date().toISOString()
+            }, (error) => {
+                if (error) {
+                    console.error('Errore salvataggio:', error);
+                    alert('Errore nel salvataggio! Verifica la connessione.');
+                } else {
+                    console.log('Dati salvati su Firebase');
+                }
+                isSyncing = false;
+                updateSyncStatus(false);
+            });
+        }
+
+        // ===== CALCOLI =====
+        function giorniDelMese(mese, anno) {
+            return new Date(anno, mese + 1, 0).getDate();
+        }
+
+        function calcolaTargetGiorno(mese, giorno) {
+            let totale = 0;
+            for (let m = 0; m < mese; m++) {
+                totale += giorniDelMese(m, currentYear);
+            }
+            totale += giorno;
+            return totale * 3;
+        }
+
+        function getDatiMese() {
+            const giorni = giorniDelMese(currentMonth, currentYear);
+            const dati = [];
+            
+            for (let g = 1; g <= giorni; g++) {
+                const chiave = `${currentYear}-${currentMonth}-${g}`;
+                const target = calcolaTargetGiorno(currentMonth, g);
+                const completato = completamenti[chiave] || 0;
+                
+                dati.push({
+                    giorno: g,
+                    chiave,
+                    target,
+                    completato,
+                    mancante: target - completato
+                });
+            }
+            return dati;
+        }
+
+        function calcolaRiepiloghi() {
+            const dati = getDatiMese();
+            const risultati = [];
+            
+            for (let i = 10; i <= dati.length; i += 10) {
+                const datiDecade = dati.slice(0, i);
+                const targetTotale = datiDecade[datiDecade.length - 1].target;
+                const completatoTotale = datiDecade.reduce((sum, d) => sum + d.completato, 0);
+                
+                risultati.push({
+                    giorni: `${i - 9}-${i}`,
+                    target: targetTotale,
+                    completato: completatoTotale,
+                    mancante: targetTotale - completatoTotale
+                });
+            }
+            
+            const targetMensile = dati[dati.length - 1].target;
+            const completatoMensile = dati.reduce((sum, d) => sum + d.completato, 0);
+            
+            risultati.push({
+                giorni: `Totale`,
+                target: targetMensile,
+                completato: completatoMensile,
+                mancante: targetMensile - completatoMensile,
+                finale: true
+            });
+            
+            return risultati;
+        }
+
+        // ===== RENDERING =====
+        function renderMonthSelector() {
+            const selector = document.getElementById('monthSelector');
+            selector.innerHTML = '';
+            
+            mesi.forEach((mese, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `month-btn ${idx === currentMonth ? 'active' : ''}`;
+                btn.textContent = mese;
+                btn.onclick = () => changeMonth(idx);
+                selector.appendChild(btn);
+            });
+        }
+
+        function renderTable() {
+            const dati = getDatiMese();
+            const tbody = document.getElementById('tableBody');
+            const header = document.getElementById('tableHeader');
+            
+            header.textContent = `${mesi[currentMonth]} ${currentYear}`;
+            tbody.innerHTML = '';
+            
+            dati.forEach(dato => {
+                const row = document.createElement('tr');
+                const isDone = completamenti[dato.chiave] === dato.target;
+                
+                row.innerHTML = `
+                    <td>Giorno ${dato.giorno}</td>
+                    <td><strong>${dato.target}</strong></td>
+                    <td>
+                        <input type="number" value="${completamenti[dato.chiave] || ''}" 
+                               onchange="updateCompletamento('${dato.chiave}', this.value)"
+                               min="0">
+                    </td>
+                    <td>
+                        <span class="missing ${dato.mancante === 0 ? 'zero' : dato.mancante > 0 ? 'positive' : 'negative'}">
+                            ${dato.mancante > 0 ? '+' : ''}${dato.mancante}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="complete-btn ${isDone ? 'done' : 'pending'}"
+                                onclick="toggleComplete('${dato.chiave}', ${dato.target})">
+                            ${isDone ? '✓ Fatto' : 'Completa'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderStats() {
+            const dati = getDatiMese();
+            const targetMensile = dati[dati.length - 1].target;
+            const completatoMensile = dati.reduce((sum, d) => sum + d.completato, 0);
+            const mancantiMensile = targetMensile - completatoMensile;
+            
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">📅 Target Mensile</div>
+                    <div class="stat-value blue">${targetMensile}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">✅ Completati</div>
+                    <div class="stat-value green">${completatoMensile}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">⏳ Mancanti</div>
+                    <div class="stat-value orange">${mancantiMensile}</div>
+                </div>
+            `;
+        }
+
+        function renderSummaries() {
+            const riepiloghi = calcolaRiepiloghi();
+            const grid = document.getElementById('summaryGrid');
+            grid.innerHTML = '';
+            
+            riepiloghi.forEach(riepilogo => {
+                const card = document.createElement('div');
+                card.className = `summary-card ${riepilogo.finale ? 'final' : ''}`;
+                
+                const percentuale = riepilogo.target > 0 
+                    ? ((riepilogo.completato / riepilogo.target) * 100).toFixed(1)
+                    : 0;
+                
+                card.innerHTML = `
+                    <h3>${riepilogo.finale ? '🏁 ' : '📊 '}Giorni ${riepilogo.giorni}</h3>
+                    <div class="summary-item">
+                        <span class="summary-label">Target:</span>
+                        <span class="summary-value blue">${riepilogo.target}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Completati:</span>
+                        <span class="summary-value green">${riepilogo.completato}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Mancanti:</span>
+                        <span class="summary-value ${riepilogo.mancante === 0 ? 'green' : 'orange'}">${riepilogo.mancante}</span>
+                    </div>
+                    ${riepilogo.completato > 0 ? `
+                    <div class="summary-item" style="border-top: 1px solid #ddd; margin-top: 10px; padding-top: 10px;">
+                        <span class="summary-label">Percentuale:</span>
+                        <span class="summary-value blue">${percentuale}%</span>
+                    </div>
+                    ` : ''}
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // ===== HANDLERS =====
+        function changeMonth(monthIdx) {
+            currentMonth = monthIdx;
+            render();
+        }
+
+        function updateCompletamento(chiave, valore) {
+            if (valore === '') {
+                delete completamenti[chiave];
+            } else {
+                completamenti[chiave] = Number(valore);
+            }
+            saveDataToFirebase();
+            render();
+        }
+
+        function toggleComplete(chiave, target) {
+            if (completamenti[chiave] === target) {
+                delete completamenti[chiave];
+            } else {
+                completamenti[chiave] = target;
+            }
+            saveDataToFirebase();
+            render();
+        }
+
+        function render() {
+            renderTable();
+            renderStats();
+            renderSummaries();
+        }
+
+        function initApp() {
+            renderMonthSelector();
+            render();
+        }
+
+        // ===== INIT =====
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
         });
     </script>
 </body>
