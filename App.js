@@ -1,0 +1,311 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, CheckCircle, TrendingUp, Calendar } from 'lucide-react';
+
+const ProgressiveTracker = () => {
+  const [dailyIncrement, setDailyIncrement] = useState(3);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [data, setData] = useState({});
+
+  const monthNames = [
+    'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+  ];
+
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getTotalDaysUntilMonth = (month, year) => {
+    let total = 0;
+    for (let y = 2025; y < year; y++) {
+      total += (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
+    }
+    for (let m = 0; m < month; m++) {
+      total += getDaysInMonth(m, year);
+    }
+    return total;
+  };
+
+  const getTargetForDay = (day, month, year) => {
+    const totalDaysSinceStart = getTotalDaysUntilMonth(month, year) + day;
+    return totalDaysSinceStart * dailyIncrement;
+  };
+
+  const handleCheckToggle = (day) => {
+    const key = `${currentYear}-${currentMonth}-${day}`;
+    const target = getTargetForDay(day, currentMonth, currentYear);
+    setData(prev => ({
+      ...prev,
+      [key]: prev[key]?.checked ? { ...prev[key], checked: false, completed: 0 } : { checked: true, completed: target }
+    }));
+  };
+
+  const handleCompletedChange = (day, value) => {
+    const key = `${currentYear}-${currentMonth}-${day}`;
+    const numValue = parseInt(value) || 0;
+    setData(prev => ({
+      ...prev,
+      [key]: { ...prev[key], completed: numValue, checked: false }
+    }));
+  };
+
+  const getMonthData = () => {
+    const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+    const monthData = [];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = `${currentYear}-${currentMonth}-${day}`;
+      const target = getTargetForDay(day, currentMonth, currentYear);
+      const completed = data[key]?.completed || 0;
+      const checked = data[key]?.checked || false;
+      
+      monthData.push({
+        day,
+        target,
+        completed,
+        checked,
+        missing: target - completed
+      });
+    }
+    
+    return monthData;
+  };
+
+  const getSummaries = () => {
+    const monthData = getMonthData();
+    const summaries = [];
+    
+    // Riepiloghi ogni 10 giorni
+    for (let i = 10; i <= monthData.length; i += 10) {
+      const slice = monthData.slice(0, i);
+      summaries.push({
+        label: `Giorni 1-${i}`,
+        targetTotal: slice.reduce((sum, d) => sum + d.target, 0),
+        completedTotal: slice.reduce((sum, d) => sum + d.completed, 0),
+        missingTotal: slice.reduce((sum, d) => sum + d.missing, 0)
+      });
+    }
+    
+    // Riepilogo finale mese
+    summaries.push({
+      label: `Totale ${monthNames[currentMonth]}`,
+      targetTotal: monthData.reduce((sum, d) => sum + d.target, 0),
+      completedTotal: monthData.reduce((sum, d) => sum + d.completed, 0),
+      missingTotal: monthData.reduce((sum, d) => sum + d.missing, 0),
+      isFinal: true
+    });
+    
+    return summaries;
+  };
+
+  const changeMonth = (direction) => {
+    if (direction === 'next') {
+      if (currentMonth === 11) {
+        setCurrentMonth(0);
+        setCurrentYear(currentYear + 1);
+      } else {
+        setCurrentMonth(currentMonth + 1);
+      }
+    } else {
+      if (currentMonth === 0) {
+        setCurrentMonth(11);
+        setCurrentYear(currentYear - 1);
+      } else {
+        setCurrentMonth(currentMonth - 1);
+      }
+    }
+  };
+
+  const monthData = getMonthData();
+  const summaries = getSummaries();
+  const completionRate = ((summaries[summaries.length - 1].completedTotal / summaries[summaries.length - 1].targetTotal) * 100).toFixed(1);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-indigo-600" />
+              <h1 className="text-3xl font-bold text-gray-800">Tracker Progressivo</h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">Incremento giornaliero:</label>
+              <input
+                type="number"
+                value={dailyIncrement}
+                onChange={(e) => setDailyIncrement(parseInt(e.target.value) || 1)}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          
+          {/* Month Navigation */}
+          <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-4 text-white">
+            <button
+              onClick={() => changeMonth('prev')}
+              className="p-2 hover:bg-white/20 rounded-lg transition"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              <span className="text-xl font-semibold">
+                {monthNames[currentMonth]} {currentYear}
+              </span>
+            </div>
+            <button
+              onClick={() => changeMonth('next')}
+              className="p-2 hover:bg-white/20 rounded-lg transition"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Progress Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="text-sm text-blue-600 font-medium mb-1">Target Totale</div>
+              <div className="text-2xl font-bold text-blue-700">
+                {summaries[summaries.length - 1].targetTotal.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-green-50 rounded-lg p-4">
+              <div className="text-sm text-green-600 font-medium mb-1">Completati</div>
+              <div className="text-2xl font-bold text-green-700">
+                {summaries[summaries.length - 1].completedTotal.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-4">
+              <div className="text-sm text-purple-600 font-medium mb-1">Tasso Completamento</div>
+              <div className="text-2xl font-bold text-purple-700">
+                {completionRate}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Tracking Table */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold">Giorno</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold">Target Previsto</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold">Completati</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold">Mancanti</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold">Completo ✓</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {monthData.map((row, idx) => (
+                  <tr
+                    key={row.day}
+                    className={`${
+                      row.checked ? 'bg-green-50' : row.completed > 0 ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    } transition`}
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      {row.day}
+                    </td>
+                    <td className="px-6 py-4 text-right font-semibold text-indigo-600">
+                      {row.target.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <input
+                        type="number"
+                        value={row.completed || ''}
+                        onChange={(e) => handleCompletedChange(row.day, e.target.value)}
+                        placeholder="0"
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className={`px-6 py-4 text-right font-semibold ${
+                      row.missing > 0 ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {row.missing.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleCheckToggle(row.day)}
+                        className={`p-2 rounded-lg transition ${
+                          row.checked
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
+                        }`}
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Summaries */}
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-indigo-600" />
+            Riepiloghi
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {summaries.map((summary, idx) => (
+              <div
+                key={idx}
+                className={`rounded-xl p-5 ${
+                  summary.isFinal
+                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white col-span-full'
+                    : 'bg-gradient-to-br from-blue-50 to-indigo-50 border border-indigo-200'
+                }`}
+              >
+                <div className={`text-sm font-semibold mb-3 ${summary.isFinal ? 'text-white' : 'text-indigo-600'}`}>
+                  {summary.label}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <div className={`text-xs mb-1 ${summary.isFinal ? 'text-indigo-100' : 'text-gray-600'}`}>
+                      Previsto
+                    </div>
+                    <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-gray-900'}`}>
+                      {summary.targetTotal.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className={`text-xs mb-1 ${summary.isFinal ? 'text-green-100' : 'text-gray-600'}`}>
+                      Completati
+                    </div>
+                    <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-green-600'}`}>
+                      {summary.completedTotal.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className={`text-xs mb-1 ${summary.isFinal ? 'text-red-100' : 'text-gray-600'}`}>
+                      Mancanti
+                    </div>
+                    <div className={`text-lg font-bold ${summary.isFinal ? 'text-white' : 'text-red-600'}`}>
+                      {summary.missingTotal.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProgressiveTracker;
+```
+
+### 5. **.gitignore**
+```
+node_modules/
+build/
+.DS_Store
