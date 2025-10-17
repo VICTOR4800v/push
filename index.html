@@ -1,3 +1,4 @@
+Ecco il codice completo aggiornato:
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -426,7 +427,7 @@
 
         // CONFIGURAZIONE FIREBASE - Sostituisci con le tue credenziali
         const firebaseConfig = {
-              apiKey: "AIzaSyBfFmbNASeRU5T12O9WTUCtzvsfMlFFQ18",
+             apiKey: "AIzaSyBfFmbNASeRU5T12O9WTUCtzvsfMlFFQ18",
   authDomain: "tracker-attivita.firebaseapp.com",
   databaseURL: "https://tracker-attivita-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "tracker-attivita",
@@ -576,7 +577,8 @@
             // Summaries every 10 days
             for (let i = 10; i <= days; i += 10) {
                 const subset = monthData.slice(0, i);
-                const targetTotal = subset[subset.length - 1].target;
+                // Il target per i primi i giorni è semplicemente i * INCREMENT
+                const targetTotal = i * INCREMENT;
                 const completedTotal = subset.reduce((sum, d) => sum + (d.completed || 0), 0);
                 
                 summaries.push({
@@ -589,7 +591,7 @@
             }
             
             // Monthly final summary
-            const targetMonthly = monthData[monthData.length - 1].target;
+            const targetMonthly = days * INCREMENT;
             const completedMonthly = monthData.reduce((sum, d) => sum + (d.completed || 0), 0);
             
             summaries.push({
